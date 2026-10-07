@@ -1,0 +1,9 @@
+# Python dependencies
+# Note: TVM must be built from source for this project.
+#       The PyPI version (apache-tvm) is suitable for tutorials only
+#       and does not support custom build options required for BYOC
+#       (e.g. USE_EXAMPLE_NPU_CODEGEN=ON, USE_LLVM=ON for cross-compilation).
+#       See docs/setup.md for TVM build instructions.
+ultralytics==8.4.173
+ml_dtypes==0.6.0
+apache-tvm-ffi-orcjit==0.1.2
