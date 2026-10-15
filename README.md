@@ -29,13 +29,61 @@ tvm-riscv-compiler/
 ├── byoc/ # BYOC pattern registration, partition, codegen
 ├── kernels/rvv/ # RVV intrinsic kernels
 ├── relax/ # Relax IR passes
-├── models/yolov8n/ # Model export and pre/postprocess
-├── scripts/ # compile, inference, benchmark
+├── models/yolov8n/ # Model export
+├── scripts/ # compile, validate
 ├── cmake/ # Cross-compile toolchain
-├── runtime/ # C++ inference runtime
+├── runtime/ # Inference runtime
 └── docs/ # Build and setup guides
 ```
 
 ## Quick Start
 
-See [docs/setup.md](docs/setup.md) for full setup instructions.
+1. Set up development environment → [docs/setup.md](docs/setup.md)
+2. Build TVM runtime for RISC-V → [docs/build-riscv-runtime.md](docs/build-riscv-runtime.md)
+3. Build inference runtime → [docs/build-inference-runtime.md](docs/build-inference-runtime.md)
+
+### Compile model
+
+```bash
+# x86 validation
+python scripts/compile.py --target x86
+
+# Cross-compile for RISC-V
+python scripts/compile.py --target riscv-scalar
+python scripts/compile.py --target riscv-rvv
+```
+
+### Deploy and run on BPI-F3
+
+```bash
+# Transfer files
+scp yolov8n_riscv_rvv.so runtime/build/inference root@<board-ip>:/path/to/your/workspace
+
+# Run on board
+./inference /path/to/your/workspace/yolov8n_riscv_rvv.so
+```
+
+## Benchmark Results
+
+> Zero pipeline baseline on BananaPi BPI-F3 (SpacemiT K1)
+> Input: YOLOv8n, (1, 3, 640, 640) float32, single run
+
+| Target | Pipeline | Inference Time |
+|--------|----------|----------------|
+| RISC-V scalar | zero | 42626 ms |
+| RISC-V RVV | zero | 42612 ms |
+
+**Note:** Both targets show similar performance under `zero` pipeline because
+LLVM auto-vectorization does not generate RVV instructions for TVM's conv2d
+kernels. The next step is to apply Relax optimization passes and implement
+BYOC with hand-written RVV kernels.
+
+## Roadmap
+
+- [x] x86 baseline: compile + validate
+- [x] RISC-V scalar baseline: 42626 ms
+- [x] RISC-V RVV baseline: 42612 ms
+- [ ] Relax optimization pipeline
+- [ ] BYOC pattern registration
+- [ ] Hand-written RVV kernels
+- [ ] End-to-end benchmark comparison

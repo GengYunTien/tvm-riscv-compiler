@@ -7,10 +7,10 @@ __pycache__/
 
 # Build outputs
 *.so
+runtime/build/
 
 # Model weights
 *.pt
-*.pkl
 
 # OS
 .DS_Store
