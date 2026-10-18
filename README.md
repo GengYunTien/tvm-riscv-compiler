@@ -28,7 +28,6 @@ from YOLOv8n import to vectorized inference.
 tvm-riscv-compiler/
 ├── byoc/ # BYOC pattern registration, partition, codegen
 ├── kernels/rvv/ # RVV intrinsic kernels
-├── relax/ # Relax IR passes
 ├── models/yolov8n/ # Model export
 ├── scripts/ # compile, validate
 ├── cmake/ # Cross-compile toolchain
@@ -68,22 +67,25 @@ scp yolov8n_riscv_rvv.so runtime/build/inference root@<board-ip>:/path/to/your/w
 > Zero pipeline baseline on BananaPi BPI-F3 (SpacemiT K1)
 > Input: YOLOv8n, (1, 3, 640, 640) float32, single run
 
-| Target | Pipeline | Inference Time |
-|--------|----------|----------------|
-| RISC-V scalar | zero | 42626 ms |
-| RISC-V RVV | zero | 42612 ms |
+| Pipeline | scalar | rvv |
+|----------|--------|-----|
+| zero | 42626 ms | 42612 ms |
+| fusion | 42669 ms | 42556 ms |
+| fusion + BN fold | 42483 ms | 42714 ms |
 
-**Note:** Both targets show similar performance under `zero` pipeline because
-LLVM auto-vectorization does not generate RVV instructions for TVM's conv2d
-kernels. The next step is to apply Relax optimization passes and implement
-BYOC with hand-written RVV kernels.
+**Analysis:**
+- `zero` pipeline: LLVM auto-vectorization generates minimal RVV instructions for Conv2d kernels — scalar and RVV show similar performance
+- `fusion` pipeline: FuseOps fuses bn+sigmoid+multiply into single kernels, but minimal speedup
+- `fusion + BN fold`: FoldBatchnormToConv2D folds all 57 BN ops into Conv2d weights, still minimal speedup
+- Bottleneck confirmed: Conv2d computation dominates (~90%+ of inference time)
+- Relax graph-level passes provide <1% improvement — TensorIR schedule and BYOC with hand-written RVV kernels required
 
 ## Roadmap
 
 - [x] x86 baseline: compile + validate
-- [x] RISC-V scalar baseline: 42626 ms
-- [x] RISC-V RVV baseline: 42612 ms
-- [ ] Relax optimization pipeline
+- [x] RISC-V scalar/RVV baseline (zero pipeline): ~42600 ms
+- [x] Relax optimization pipeline (fusion + BN fold): ~42500 ms
+- [ ] TensorIR schedule (tiling + vectorize)
 - [ ] BYOC pattern registration
 - [ ] Hand-written RVV kernels
 - [ ] End-to-end benchmark comparison

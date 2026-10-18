@@ -61,7 +61,14 @@ elif args.target == "riscv-rvv":
     cross_compile = True
 
 # Compile
-mod_compiled = relax.get_pipeline("zero")(mod)
+mod_compiled = tvm.ir.transform.Sequential([
+    relax.transform.DecomposeOpsForInference(),
+    relax.transform.FoldBatchnormToConv2D(),
+    relax.transform.LegalizeOps(),
+    relax.transform.AnnotateTIROpPattern(),
+    relax.transform.FuseOps(),
+    relax.transform.FuseTIR(),
+])(mod)
 exec_module = tvm.compile(mod_compiled, target=target)
 
 # Export
