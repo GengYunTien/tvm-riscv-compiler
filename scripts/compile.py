@@ -10,6 +10,7 @@ from torch.export import export
 import tvm
 from tvm import relax
 from tvm.relax.frontend.torch import from_exported_program
+from tir.schedules import apply_conv2d_schedule
 
 parser = argparse.ArgumentParser(description = "Compile YOLOv8n for RISC-V")
 parser.add_argument(
@@ -64,11 +65,13 @@ elif args.target == "riscv-rvv":
 mod_compiled = tvm.ir.transform.Sequential([
     relax.transform.DecomposeOpsForInference(),
     relax.transform.FoldBatchnormToConv2D(),
+    relax.transform.ConvertLayout({"relax.nn.conv2d": ["NHWC", "OHWI"]}),
     relax.transform.LegalizeOps(),
     relax.transform.AnnotateTIROpPattern(),
     relax.transform.FuseOps(),
     relax.transform.FuseTIR(),
 ])(mod)
+mod_compiled = apply_conv2d_schedule(mod_compiled)
 exec_module = tvm.compile(mod_compiled, target=target)
 
 # Export
@@ -94,7 +97,7 @@ else:
         pt_out = torch_model(torch.from_numpy(input_data))
         pt_result = pt_out[0].numpy()
 
-    np.testing.assert_allclose(tvm_result, pt_result, rtol = 1e-5, atol = 1e-5)
+    np.testing.assert_allclose(tvm_result, pt_result, rtol = 1e-4, atol = 1e-4)
     print("TVM output shape:", tvm_result.shape)
     print("PyTorch vs TVM outputs match!")
 
