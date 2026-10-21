@@ -10,7 +10,8 @@ from torch.export import export
 import tvm
 from tvm import relax
 from tvm.relax.frontend.torch import from_exported_program
-from tir.schedules import apply_conv2d_schedule
+from tvm.relax.transform import FuseOpsByPattern, MergeCompositeFunctions, RunCodegen
+from byoc.patterns import get_conv2d_patterns
 
 parser = argparse.ArgumentParser(description = "Compile YOLOv8n for RISC-V")
 parser.add_argument(
@@ -65,13 +66,14 @@ elif args.target == "riscv-rvv":
 mod_compiled = tvm.ir.transform.Sequential([
     relax.transform.DecomposeOpsForInference(),
     relax.transform.FoldBatchnormToConv2D(),
-    relax.transform.ConvertLayout({"relax.nn.conv2d": ["NHWC", "OHWI"]}),
+    FuseOpsByPattern(get_conv2d_patterns(), bind_constants=False, annotate_codegen=True),
+    MergeCompositeFunctions(),
+    RunCodegen(),
     relax.transform.LegalizeOps(),
     relax.transform.AnnotateTIROpPattern(),
     relax.transform.FuseOps(),
     relax.transform.FuseTIR(),
 ])(mod)
-mod_compiled = apply_conv2d_schedule(mod_compiled)
 exec_module = tvm.compile(mod_compiled, target=target)
 
 # Export
