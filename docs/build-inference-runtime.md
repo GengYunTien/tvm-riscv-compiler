@@ -9,8 +9,8 @@ See [build-riscv-runtime.md](build-riscv-runtime.md).
 ## Steps
 
 ```bash
-cd runtime
-mkdir build && cd build
+cd inference
+rm -rf build && mkdir build && cd build
 
 cmake .. \
     -DCMAKE_TOOLCHAIN_FILE=../../cmake/riscv64-toolchain.cmake \
@@ -22,15 +22,15 @@ make -j$(nproc)
 ## Verify
 
 ```bash
-file inference
+file run_model
 # Expected: ELF 64-bit LSB pie executable, UCB RISC-V
 ```
 
 Copy it to the board and check that it links the RVV runtime library:
 
 ```bash
-scp inference root@<board-ip>:/path/to/your/workspace
-ssh root@<board-ip> "ldd /path/to/your/workspace/inference | grep tvm"
+scp run_model root@<board-ip>:/path/to/your/workspace
+ssh root@<board-ip> "ldd /path/to/your/workspace/run_model | grep tvm"
 # Expected: libtvm_runtime.so, libtvm_runtime_extra.so, libtvm_ffi.so
 ```
 

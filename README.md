@@ -34,7 +34,7 @@ tvm-riscv-compiler/
 ├── cmake/              # RVV build module, TVM config, cross-compile toolchain
 ├── scripts/            # TVM build and RVV backend apply scripts
 ├── models/yolov8n/     # Model export
-├── runtime/            # On-board inference executable
+├── inference/          # On-board model runner (run_model)
 ├── docs/               # Build and setup guides
 ├── compile.py          # Compile entry point
 └── env.sh              # Environment variables (source before use)
@@ -66,10 +66,10 @@ Install the riscv64 runtime libraries on the board first
 
 ```bash
 # Transfer files
-scp yolov8n_riscv_rvv.so runtime/build/inference root@<board-ip>:/path/to/your/workspace
+scp yolov8n_riscv_rvv.so inference/build/run_model root@<board-ip>:/path/to/your/workspace
 
 # Run on board
-./inference /path/to/your/workspace/yolov8n_riscv_rvv.so
+./run_model /path/to/your/workspace/yolov8n_riscv_rvv.so
 ```
 
 ## Benchmark Results

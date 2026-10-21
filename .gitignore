@@ -7,7 +7,7 @@ __pycache__/
 
 # Build outputs
 *.so
-runtime/build/
+inference/build/
 
 # Model weights
 *.pt

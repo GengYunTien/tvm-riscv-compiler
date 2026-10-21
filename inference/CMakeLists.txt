@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(tvm_riscv_runtime CXX)
+project(run_model CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -20,9 +20,9 @@ include_directories(
 link_directories(${TVM_HOME}/build-riscv/lib)
 
 # Executable
-add_executable(inference main.cc)
+add_executable(run_model main.cc)
 
-target_link_libraries(inference
+target_link_libraries(run_model
     -Wl,--no-as-needed
     tvm_runtime_extra
     -Wl,--as-needed

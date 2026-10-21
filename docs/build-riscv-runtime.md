@@ -63,5 +63,5 @@ ldconfig -p | grep tvm
 ```
 
 `libtvm_runtime_extra.so` holds the RVV runtime (`rvv_json` loader). The
-`inference` executable must link it, see
+`run_model` executable must link it, see
 [build-inference-runtime.md](build-inference-runtime.md).
