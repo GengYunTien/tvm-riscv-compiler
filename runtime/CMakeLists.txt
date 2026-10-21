@@ -23,6 +23,9 @@ link_directories(${TVM_HOME}/build-riscv/lib)
 add_executable(inference main.cc)
 
 target_link_libraries(inference
+    -Wl,--no-as-needed
+    tvm_runtime_extra
+    -Wl,--as-needed
     tvm_runtime
     tvm_ffi
     pthread
