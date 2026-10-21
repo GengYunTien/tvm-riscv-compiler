@@ -1,10 +1,8 @@
 import numpy as np
-import os
 import argparse
 from ultralytics import YOLO
 
 import torch
-from torch import nn
 from torch.export import export
 
 import tvm
@@ -21,6 +19,7 @@ parser.add_argument(
     help = "Compilation target"
 )
 args = parser.parse_args()
+use_byoc = args.target != "riscv-scalar"
 
 # Import from PyTorch
 torch_model = YOLO('yolov8n.pt').model.eval()
@@ -63,17 +62,23 @@ elif args.target == "riscv-rvv":
     cross_compile = True
 
 # Compile
-mod_compiled = tvm.ir.transform.Sequential([
+passes = [
     relax.transform.DecomposeOpsForInference(),
     relax.transform.FoldBatchnormToConv2D(),
-    FuseOpsByPattern(get_conv2d_patterns(), bind_constants=False, annotate_codegen=True),
-    MergeCompositeFunctions(),
-    RunCodegen(),
+]
+if use_byoc:
+    passes += [
+        FuseOpsByPattern(get_conv2d_patterns(), bind_constants=False, annotate_codegen=True),
+        MergeCompositeFunctions(),
+        RunCodegen(),
+    ]
+passes += [
     relax.transform.LegalizeOps(),
     relax.transform.AnnotateTIROpPattern(),
     relax.transform.FuseOps(),
     relax.transform.FuseTIR(),
-])(mod)
+]
+mod_compiled = tvm.ir.transform.Sequential(passes)(mod)
 exec_module = tvm.compile(mod_compiled, target=target)
 
 # Export
