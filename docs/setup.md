@@ -131,6 +131,5 @@ python compile.py --target x86 2>&1 | grep -c "RVV Runtime initialized"
 - `conv2d_rvv` is currently a scalar placeholder (no RVV intrinsics yet).
 - conv2d `padding` uses only the first two values of Relax's
   `[top, left, bottom, right]`, so asymmetric padding is not supported.
-- This build is the x86 host compiler. Running on BPI-F3 needs a riscv64 TVM
-  runtime that also includes the RVV runtime files (see
-  `docs/build-riscv-runtime.md`).
+- This build is the x86 host compiler. - This build is the x86 host compiler. To run on BPI-F3, also build the
+  riscv64 runtime (see `docs/build-riscv-runtime.md`).

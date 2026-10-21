@@ -34,7 +34,7 @@ tvm-riscv-compiler/
 ├── cmake/              # RVV build module, TVM config, cross-compile toolchain
 ├── scripts/            # TVM build and RVV backend apply scripts
 ├── models/yolov8n/     # Model export
-├── runtime/            # Inference runtime
+├── runtime/            # On-board inference executable
 ├── docs/               # Build and setup guides
 ├── compile.py          # Compile entry point
 └── env.sh              # Environment variables (source before use)
@@ -43,8 +43,8 @@ tvm-riscv-compiler/
 ## Quick Start
 
 1. Clone with submodules and set up the environment → [docs/setup.md](docs/setup.md)
-2. Build TVM runtime for RISC-V → [docs/build-riscv-runtime.md](docs/build-riscv-runtime.md)
-3. Build inference runtime → [docs/build-inference-runtime.md](docs/build-inference-runtime.md)
+2. Build the riscv64 TVM runtime (with the RVV runtime) → [docs/build-riscv-runtime.md](docs/build-riscv-runtime.md)
+3. Build the on-board inference executable → [docs/build-inference-runtime.md](docs/build-inference-runtime.md)
 
 ### Compile model
 
@@ -60,6 +60,9 @@ python compile.py --target riscv-rvv      # LLVM +v, conv2d offloaded to RVV BYO
 ```
 
 ### Deploy and run on BPI-F3
+
+Install the riscv64 runtime libraries on the board first
+(see [build-riscv-runtime.md](docs/build-riscv-runtime.md)), then:
 
 ```bash
 # Transfer files
@@ -89,7 +92,15 @@ scp yolov8n_riscv_rvv.so runtime/build/inference root@<board-ip>:/path/to/your/w
 - TensorIR experiment (commit `9d3f068`, since removed): NCHW→NHWC + split/reorder/vectorize on the output-channel axis cut scalar to 14320 ms (-66%), but the RVV build got slower (44890 ms) because LLVM chose `m2` with `vsetvli` overhead, while scalar benefited from loop unrolling.
 - Conclusion: LLVM cannot effectively generate RVV code here; hand-written RVV intrinsics via BYOC are required.
 
-BYOC results will be added once the riscv64 runtime and RVV kernel are done.
+### BYOC (conv2d offloaded to the RVV runtime)
+
+| Kernel | Time |
+|--------|------|
+| scalar placeholder (naive loops) | 68025 ms |
+
+Single runs on the board without warm-up; repeated runs fall within
+67000–68025 ms. The placeholder is slower than LLVM's conv2d (42730 ms) as
+expected; it validates the BYOC path end to end, not performance.
 
 ## Roadmap
 
@@ -98,7 +109,8 @@ BYOC results will be added once the riscv64 runtime and RVV kernel are done.
 - [x] TensorIR schedule experiment: scalar 14320 ms (-66%), RVV slower; removed
 - [x] BYOC pattern registration, JSON codegen and runtime (verified on x86, scalar conv2d placeholder)
 - [x] Reproducible build: TVM pinned as submodule
-- [ ] riscv64 TVM runtime including the RVV runtime
+- [x] riscv64 TVM runtime including the RVV runtime
+- [ ] On-board numerical verification (compare output with x86)
 - [ ] Hand-written RVV conv2d kernel
 - [ ] Reject asymmetric padding in the RVV runtime
 - [ ] End-to-end benchmark on BPI-F3

@@ -2,7 +2,8 @@
 
 ## Prerequisites
 
-Cross-compiler and TVM runtime already built.
+Cross-compiler and the riscv64 TVM runtime (built **with** the RVV runtime,
+`-DUSE_RVV_RUNTIME=ON`) must already be built.
 See [build-riscv-runtime.md](build-riscv-runtime.md).
 
 ## Steps
@@ -13,7 +14,7 @@ mkdir build && cd build
 
 cmake .. \
     -DCMAKE_TOOLCHAIN_FILE=../../cmake/riscv64-toolchain.cmake \
-    -DTVM_HOME=/path/to/tvm
+    -DTVM_HOME=$(realpath ../../3rdparty/tvm)
 
 make -j$(nproc)
 ```
@@ -21,6 +22,17 @@ make -j$(nproc)
 ## Verify
 
 ```bash
-file build/inference
+file inference
 # Expected: ELF 64-bit LSB pie executable, UCB RISC-V
 ```
+
+Copy it to the board and check that it links the RVV runtime library:
+
+```bash
+scp inference root@<board-ip>:/path/to/your/workspace
+ssh root@<board-ip> "ldd /path/to/your/workspace/inference | grep tvm"
+# Expected: libtvm_runtime.so, libtvm_runtime_extra.so, libtvm_ffi.so
+```
+
+Without `libtvm_runtime_extra.so`, loading a model that uses the RVV BYOC
+backend fails with "a loader of that name is not registered" (`rvv_json`).
