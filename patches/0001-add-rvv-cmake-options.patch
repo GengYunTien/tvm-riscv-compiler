@@ -1,0 +1,21 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 719c66da25..8d950bca58 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -110,6 +110,8 @@ tvm_option(USE_NNAPI_CODEGEN "Build with NNAPI Codegen support" OFF)
+ tvm_option(USE_NNAPI_RUNTIME "Build with NNAPI runtime" OFF)
+ tvm_option(USE_EXAMPLE_NPU_CODEGEN "Build with Example NPU Codegen support" OFF)
+ tvm_option(USE_EXAMPLE_NPU_RUNTIME "Build with Example NPU runtime" OFF)
++tvm_option(USE_RVV_CODEGEN "Build with RVV RISC-V Vector codegen support" OFF)
++tvm_option(USE_RVV_RUNTIME "Build with RVV RISC-V Vector runtime" OFF)
+ tvm_option(SUMMARIZE "Print CMake option summary after configuring" OFF)
+ tvm_option(USE_CLML "Build with CLML Codegen support" OFF)
+ tvm_option(USE_CLML_GRAPH_EXECUTOR "Build with CLML graph runtime" OFF)
+@@ -467,6 +469,7 @@ include(cmake/modules/contrib/CoreML.cmake)
+ include(cmake/modules/contrib/TensorRT.cmake)
+ include(cmake/modules/contrib/NNAPI.cmake)
+ include(cmake/modules/contrib/ExampleNPU.cmake)
++include(cmake/modules/contrib/RVV.cmake)
+ include(cmake/modules/contrib/vllm.cmake)
+ include(cmake/modules/Git.cmake)
+ 
