@@ -9,6 +9,9 @@ __pycache__/
 *.so
 inference/build/
 
+# Model input and output
+*.bin 
+
 # Model weights
 *.pt
 

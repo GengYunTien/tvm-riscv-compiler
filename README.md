@@ -36,7 +36,8 @@ tvm-riscv-compiler/
 ├── models/yolov8n/     # Model export
 ├── inference/          # On-board model runner (run_model)
 ├── docs/               # Build and setup guides
-├── compile.py          # Compile entry point
+├── compile.py          # Compile entry point (x86 also writes in.bin / ref_out.bin)
+├── verify.py           # Compare board output with x86 reference
 └── env.sh              # Environment variables (source before use)
 ```
 
@@ -52,6 +53,7 @@ tvm-riscv-compiler/
 source env.sh
 
 # x86 validation (BYOC conv2d, checked against PyTorch)
+# host: generates in.bin (input) and ref_out.bin (x86 reference)
 python compile.py --target x86
 
 # Cross-compile for RISC-V
@@ -69,12 +71,27 @@ Install the riscv64 runtime libraries on the board first
 scp yolov8n_riscv_rvv.so inference/build/run_model root@<board-ip>:/path/to/your/workspace
 
 # Run on board
-./run_model /path/to/your/workspace/yolov8n_riscv_rvv.so
+./run_model /path/to/your/workspace/yolov8n_riscv_rvv.so --runs 5
+```
+
+### Verify on board
+
+```bash
+# host -> board
+scp in.bin root@<board-ip>:/path/to/your/workspace
+
+# board
+./run_model yolov8n_riscv_rvv.so --input in.bin --output out.bin
+
+# host
+scp root@<board-ip>:/path/to/your/workspace/out.bin .
+python verify.py
 ```
 
 ## Benchmark Results
 
 > BananaPi BPI-F3 (SpacemiT K1), input: YOLOv8n, (1, 3, 640, 640) float32, single run
+> single thread on one core (`taskset -c 0`), one warm-up run excluded.
 
 ### LLVM baselines (no BYOC)
 
@@ -94,13 +111,14 @@ scp yolov8n_riscv_rvv.so inference/build/run_model root@<board-ip>:/path/to/your
 
 ### BYOC (conv2d offloaded to the RVV runtime)
 
-| Kernel | Time |
-|--------|------|
-| scalar placeholder (naive loops) | 68025 ms |
+| Pipeline | conv2d | Time |
+|----------|--------|------|
+| riscv-scalar | LLVM | 42249 ms |
+| riscv-rvv | BYOC scalar placeholder | 67983 ms |
 
-Single runs on the board without warm-up; repeated runs fall within
-67000–68025 ms. The placeholder is slower than LLVM's conv2d (42730 ms) as
-expected; it validates the BYOC path end to end, not performance.
+The placeholder output is bit-identical to the LLVM build on the board and
+within 5e-4 abs / 3.6e-5 rel of the x86 reference. It validates the BYOC path
+end to end, not performance.
 
 ## Roadmap
 
@@ -110,7 +128,7 @@ expected; it validates the BYOC path end to end, not performance.
 - [x] BYOC pattern registration, JSON codegen and runtime (verified on x86, scalar conv2d placeholder)
 - [x] Reproducible build: TVM pinned as submodule
 - [x] riscv64 TVM runtime including the RVV runtime
-- [ ] On-board numerical verification (compare output with x86)
+- [x] On-board numerical verification (compare output with x86)
 - [ ] Hand-written RVV conv2d kernel
 - [ ] Reject asymmetric padding in the RVV runtime
 - [ ] End-to-end benchmark on BPI-F3

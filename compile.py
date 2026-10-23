@@ -94,10 +94,13 @@ else:
     dev = tvm.cpu()
     vm = relax.VirtualMachine(exec_module, dev)
 
-    input_data = np.random.rand(1, 3, 640, 640).astype("float32")
+    rng = np.random.default_rng(0)
+    input_data = rng.random((1, 3, 640, 640), dtype=np.float32)
+    input_data.tofile("in.bin")
     tvm_input = tvm.runtime.tensor(input_data, dev)
     tvm_out = vm["main"](tvm_input)
     tvm_result = tvm_out[0].numpy()
+    tvm_result.astype(np.float32).tofile("ref_out.bin")
 
     # Compare with PyTorch
     with torch.no_grad():
