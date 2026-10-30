@@ -42,3 +42,6 @@ void conv2d_rvv(
         }
     }
 }
+
+int rvv_kernel_abi_version(void) { return 1; }
+const char* rvv_kernel_name(void) { return "scalar"; } 

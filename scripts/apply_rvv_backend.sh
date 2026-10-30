@@ -18,6 +18,5 @@ fi
 mkdir -p src/relax/backend/contrib/rvv src/runtime/extra/contrib/rvv
 cp "$ROOT/byoc/codegen.cc"          src/relax/backend/contrib/rvv/
 cp "$ROOT/byoc/rvv_runtime.cc"      src/runtime/extra/contrib/rvv/
-cp "$ROOT/kernels/rvv/conv2d_rvv.c" src/runtime/extra/contrib/rvv/
 cp "$ROOT/cmake/RVV.cmake"          cmake/modules/contrib/
 echo "RVV backend applied to $TVM"
