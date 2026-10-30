@@ -18,6 +18,10 @@ quickly (TIRx split, `USE_*` -> `TVM_USE_*` option renames, tvm-ffi updates).
 | LLVM | 23.1.3 (23.1.2 also verified) |
 | cmake | 4.4.4 (4.4.3 also verified) |
 | Python | 3.11 |
+| Board gcc | 13.3 (builds the RVV kernel on the BPI-F3) |
+
+The x86 TVM build is used only to run `compile.py`. Models are executed on the
+board.
 
 ## 1. Clone with submodules
 
@@ -63,8 +67,9 @@ The script does the following:
 
 1. `scripts/apply_rvv_backend.sh`: applies `patches/0001-add-rvv-cmake-options.patch`
    to the TVM submodule and copies the RVV backend files
-   (`byoc/codegen.cc`, `byoc/rvv_runtime.cc`, `kernels/rvv/conv2d_rvv.c`,
-   `cmake/RVV.cmake`) into the TVM source tree.
+   (`byoc/codegen.cc`, `byoc/rvv_runtime.cc`, `cmake/RVV.cmake`) into the TVM
+   source tree. The kernel (`kernels/rvv/conv2d_rvv.c`) is not part of TVM; the
+   runtime loads it at run time with `dlopen`.
 2. Copies `cmake/tvm_config.cmake` to `3rdparty/tvm/build/config.cmake`.
 3. Runs `cmake .. -DUSE_RVV_CODEGEN=ON -DUSE_RVV_RUNTIME=ON` and builds
    (a full build takes 30+ minutes).
@@ -109,27 +114,26 @@ print('runtime.RVVJSONRuntimeCreate:', 'OK' if tvm_ffi.get_global_func('runtime.
 "
 ```
 
-Both must print `OK`. Then run the end-to-end check on x86 with the reference
-model (YOLOv8n):
+Both must print `OK`. Then compile the model both ways and check that only the
+BYOC build contains the RVV module (one per conv2d, 41 for YOLOv8n):
 
 ```bash
-python compile.py --target x86
+python compile.py --conv2d llvm
+python compile.py --conv2d byoc
+strings yolov8n_riscv_llvm.so | grep -c rvv_json   # 0
+strings yolov8n_riscv_byoc.so | grep -c rvv_json   # 41
 ```
 
-Expected:
-
-- `PyTorch vs TVM outputs match!`
-- One `RVV Runtime initialized` line per conv2d offloaded to the RVV runtime
-  (41 for YOLOv8n):
-
-```bash
-python compile.py --target x86 2>&1 | grep -c "RVV Runtime initialized"
-```
+Next steps: build the riscv64 runtime
+([build-riscv-runtime.md](build-riscv-runtime.md)), the on-board runner
+([build-inference-runtime.md](build-inference-runtime.md)), then follow
+"Verify on board" in the README.
 
 ## Known limitations
 
-- `conv2d_rvv` is currently a scalar placeholder (no RVV intrinsics yet).
-- conv2d `padding` uses only the first two values of Relax's
-  `[top, left, bottom, right]`, so asymmetric padding is not supported.
-- This build is the x86 host compiler. - This build is the x86 host compiler. To run on BPI-F3, also build the
-  riscv64 runtime (see `docs/build-riscv-runtime.md`).
+- The RVV conv2d supports float32, NCHW, groups = 1 and dilation = 1. The
+  runtime raises an error for anything else, including asymmetric padding.
+- Only conv2d is offloaded to the RVV backend; other operators are compiled by
+  LLVM without `+v`.
+- The kernel must be built on the board (host gcc 11.4 has no
+  `riscv_vector.h`), see the README ("Build the kernel").

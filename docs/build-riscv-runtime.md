@@ -36,7 +36,8 @@ The configure step must print `Build with RVV runtime`.
 ```bash
 file lib/libtvm_runtime_extra.so
 # Expected: ELF 64-bit LSB shared object, UCB RISC-V
-nm lib/libtvm_runtime_extra.so | grep -i "RVVRuntime\|conv2d_rvv"
+nm lib/libtvm_runtime_extra.so | grep -c "RVVRuntime"     # > 0
+nm lib/libtvm_runtime_extra.so | grep -c "conv2d_rvv"     # 0 (kernel is loaded with dlopen)
 ```
 
 ## Deploy to BPI-F3
@@ -61,6 +62,20 @@ ldconfig
 ldconfig -p | grep tvm
 # Expected: libtvm_runtime.so, libtvm_runtime_extra.so, libtvm_ffi.so
 ```
+
+### 4. Kernel library
+
+The runtime loads the conv2d kernel at run time with `dlopen`. If
+`RVV_KERNEL_LIB` is not set, it looks for `librvv_kernels.so` in the system
+library search path (`LD_LIBRARY_PATH`, `ldconfig` cache), not in the current
+directory. Always set `RVV_KERNEL_LIB` to an absolute path:
+
+```bash
+RVV_KERNEL_LIB=/usr/share/workspace/librvv_kernels.so ./run_model ...
+```
+
+Build the kernel on the board, see "Build the kernel" in the README. Use
+absolute paths for both the model and the kernel library.
 
 `libtvm_runtime_extra.so` holds the RVV runtime (`rvv_json` loader). The
 `run_model` executable must link it, see
