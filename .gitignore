@@ -9,6 +9,9 @@ __pycache__/
 *.so
 inference/build/
 
+# Unit test files
+test_conv2d
+
 # Model input and output
 *.bin 
 
