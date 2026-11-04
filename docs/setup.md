@@ -18,7 +18,7 @@ quickly (TIRx split, `USE_*` -> `TVM_USE_*` option renames, tvm-ffi updates).
 | LLVM | 23.1.3 (23.1.2 also verified) |
 | cmake | 4.4.4 (4.4.3 also verified) |
 | Python | 3.11 |
-| Board gcc | 13.3 (builds the RVV kernel on the BPI-F3) |
+| Board gcc | 14.2 (builds the RVV kernel on the BPI-F3) |
 
 The x86 TVM build is used only to run `compile.py`. Models are executed on the
 board.

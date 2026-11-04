@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build librvv_kernels.so ON the BPI-F3 (gcc 13 supports RVV 1.0 intrinsics; the host cross-compiler gcc 11.4 does not).
+# Build librvv_kernels.so ON the BPI-F3 (gcc 14 supports RVV 1.0 intrinsics; the host cross-compiler gcc 11.4 does not).
 set -euo pipefail
 
 [ "$(uname -m)" = "riscv64" ] || { echo "must run on the riscv64 board" >&2; exit 1; }

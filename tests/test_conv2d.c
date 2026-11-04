@@ -3,7 +3,7 @@
 //
 // Build (x86, host):
 //   gcc -O2 -o test_conv2d tests/test_conv2d.c kernels/rvv/conv2d_rvv.c -lm
-// Build (riscv, ON the board, gcc 13):
+// Build (riscv, ON the board, gcc 14):
 //   gcc -O2 -march=rv64gcv -o test_conv2d test_conv2d.c conv2d_rvv.c -lm
 #include <math.h>
 #include <stdio.h>

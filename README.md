@@ -23,7 +23,7 @@ from YOLOv8n import to vectorized inference.
 | LLVM | 23.1.3 |
 | Cross-compiler | riscv64-linux-gnu-gcc 11.4.0 (TVM runtime and model) |
 
-The RVV kernel is built on the board with gcc 13, because the host
+The RVV kernel is built on the board with gcc 14, because the host
 cross-compiler (gcc 11.4) has no `riscv_vector.h`.
 
 ## Project Structure
@@ -32,7 +32,7 @@ cross-compiler (gcc 11.4) has no `riscv_vector.h`.
 tvm-riscv-compiler/
 ├── 3rdparty/tvm/       # TVM (git submodule, pinned)
 ├── byoc/               # BYOC pattern registration, JSON codegen, runtime
-├── kernels/rvv/        # conv2d kernel (loaded by the runtime via dlopen)
+├── kernels/rvv/        # conv2d kernel (RVV intrinsics + scalar fallback, loaded via dlopen)
 ├── tests/              # Kernel unit test
 ├── patches/            # Patches applied to the TVM submodule
 ├── cmake/              # RVV build module, TVM config, cross-compile toolchain
@@ -66,11 +66,14 @@ differ only in the conv2d implementation.
 
 ### Build the kernel (on the board)
 
-Prerequisite (once): a compiler with RVV 1.0 intrinsics. Ubuntu 24.04 ships gcc 13:
+Prerequisite (once): gcc 14 (Ubuntu 24.04 ships gcc 13 by default):
 
 ```bash
-apt install build-essential
-gcc --version | head -1      # gcc 13 or newer
+apt install build-essential gcc-14
+update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 13
+update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 14
+update-alternatives --set gcc /usr/bin/gcc-14
+gcc --version | head -1      # gcc 14.x
 ```
 
 ```bash
@@ -80,6 +83,11 @@ scp kernels/rvv/conv2d_rvv.c scripts/build_kernel.sh root@<board-ip>:/path/to/yo
 # board
 ./build_kernel.sh        # builds librvv_kernels.so
 ```
+
+`conv2d_rvv.c` and `build_kernel.sh` must be in the same directory on the
+board; `librvv_kernels.so` is written next to them. The runtime log prints the
+kernel version (`kernel: rvv-v1-ow-m1`), so every measurement can be traced to
+the kernel that produced it.
 
 ### Deploy and run on BPI-F3
 
@@ -124,23 +132,31 @@ scp tests/test_conv2d.c kernels/rvv/conv2d_rvv.c root@<board-ip>:/path/to/your/w
 
 # board
 gcc -O2 -march=rv64gcv -o test_conv2d test_conv2d.c conv2d_rvv.c -lm && ./test_conv2d
+objdump -d test_conv2d | grep -c vsetvli     # > 0: the vector path was compiled
 ```
 
 ## Benchmark Results
 
 > BananaPi BPI-F3 (SpacemiT K1), input: YOLOv8n, (1, 3, 640, 640) float32,
 > single thread on one core (`taskset -c 0`), one warm-up run excluded.
+> Time is the median of 3 runs. Kernels are built with gcc 14 `-O2`.
 
-### Current (kernel built with gcc 13 `-O2`)
+### Current
 
-| conv2d | Time |
-|--------|------|
-| LLVM | 42039 ms |
-| BYOC scalar kernel | 76774 ms |
+| conv2d | Time | Instructions | IPC | L1 load misses |
+|--------|------|--------------|-----|----------------|
+| LLVM | 42206 ms | 37.9 G | 0.28 | 1.44 G |
+| RVV v1 (`ow` vectorized, masked gather, m1) | 28365 ms | 25.1 G | 0.27 | 0.43 G |
 
 Both match the PyTorch reference (max abs diff 8.2e-4, max rel diff 7.5e-5).
-The scalar kernel validates the BYOC path end to end, not performance. RVV
-kernel results will be added here.
+Time is the whole model; operators other than conv2d are compiled by LLVM
+without `+v`. Counters come from `perf stat` over the warm-up run plus one
+timed run.
+
+v1 runs 1.49x faster than LLVM and executes 1.51x fewer instructions, while IPC
+is about the same: the gain comes from the lower instruction count, not from
+better pipeline utilization. IPC stays low on both (in-order X60, vector
+instruction latency), which is what the next versions target.
 
 ### Earlier LLVM baselines (not core-pinned, with and without `+v`)
 
@@ -169,6 +185,9 @@ kernel results will be added here.
 - [x] Runtime rejects unsupported conv2d (non-fp32, groups/dilation != 1, asymmetric padding)
 - [x] On-board numerical verification against PyTorch
 - [x] Kernel unit test
-- [ ] Hand-written RVV conv2d kernel
+- [x] RVV conv2d v1: vectorize along `ow`, masked gather (1.49x faster than LLVM)
+- [ ] Re-measure the scalar kernel with gcc 14 (isolates the gain from vectorization)
+- [ ] RVV conv2d v2: contiguous loads for in-bounds segments, gather only at the edges
+- [ ] RVV conv2d v3+: several output channels per input load, multiple accumulators, LMUL and L1 tiling
 - [ ] Multi-threaded conv2d
 - [ ] Additional operators
