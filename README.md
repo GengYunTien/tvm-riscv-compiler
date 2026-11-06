@@ -137,26 +137,32 @@ objdump -d test_conv2d | grep -c vsetvli     # > 0: the vector path was compiled
 
 ## Benchmark Results
 
-> BananaPi BPI-F3 (SpacemiT K1), input: YOLOv8n, (1, 3, 640, 640) float32,
-> single thread on one core (`taskset -c 0`), one warm-up run excluded.
-> Time is the median of 3 runs. Kernels are built with gcc 14 `-O2`.
+> BananaPi BPI-F3 (SpacemiT K1), input: YOLOv8n, (1, 3, 640, 640) float32
+> (`in.bin`), single thread on one core (`taskset -c 0`), one warm-up run
+> excluded. Time is the median of 3 runs. Counters come from `perf stat` over
+> the warm-up run plus one timed run. Kernels are built with gcc 14 `-O2`.
 
 ### Current
 
 | conv2d | Time | Instructions | IPC | L1 load misses |
 |--------|------|--------------|-----|----------------|
-| LLVM | 42206 ms | 37.9 G | 0.28 | 1.44 G |
-| RVV v1 (`ow` vectorized, masked gather, m1) | 28365 ms | 25.1 G | 0.27 | 0.43 G |
+| LLVM | 42211 ms | 37.9 G | 0.28 | 1.44 G |
+| scalar C kernel | 76496 ms | 200.0 G | 0.81 | 2.41 G |
+| RVV v1 (`ow` vectorized, masked gather, m1) | 28362 ms | 25.1 G | 0.27 | 0.42 G |
 
-Both match the PyTorch reference (max abs diff 8.2e-4, max rel diff 7.5e-5).
+All three match the PyTorch reference (max abs diff 8.2e-4, max rel diff 7.5e-5).
 Time is the whole model; operators other than conv2d are compiled by LLVM
-without `+v`. Counters come from `perf stat` over the warm-up run plus one
-timed run.
+without `+v`.
 
-v1 runs 1.49x faster than LLVM and executes 1.51x fewer instructions, while IPC
-is about the same: the gain comes from the lower instruction count, not from
-better pipeline utilization. IPC stays low on both (in-order X60, vector
-instruction latency), which is what the next versions target.
+**Vectorization (scalar C kernel vs v1).** Instructions drop 8.0x, matching the
+8 lanes of e32m1, but time improves only 2.7x because IPC falls from 0.81 to
+0.27. Time is instructions times IPC, so 8.0 x (0.27 / 0.81) accounts for the
+gap. L1 load misses fall 5.7x.
+
+**Against LLVM.** LLVM's scalar code already executes 5.3x fewer instructions
+than the naive C kernel (loop restructuring and unrolling). v1 is 1.49x faster
+than LLVM with 1.51x fewer instructions and the same IPC, so the lead comes from
+the instruction count. Raising IPC is the target of the next versions.
 
 ### Earlier LLVM baselines (not core-pinned, with and without `+v`)
 
@@ -186,7 +192,7 @@ instruction latency), which is what the next versions target.
 - [x] On-board numerical verification against PyTorch
 - [x] Kernel unit test
 - [x] RVV conv2d v1: vectorize along `ow`, masked gather (1.49x faster than LLVM)
-- [ ] Re-measure the scalar kernel with gcc 14 (isolates the gain from vectorization)
+- [x] Scalar C kernel measured with gcc 14, vectorization effect isolated (2.7x)
 - [ ] RVV conv2d v2: contiguous loads for in-bounds segments, gather only at the edges
 - [ ] RVV conv2d v3+: several output channels per input load, multiple accumulators, LMUL and L1 tiling
 - [ ] Multi-threaded conv2d
