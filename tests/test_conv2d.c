@@ -1,9 +1,9 @@
 // tests/test_conv2d.c
 // Unit test for conv2d_rvv against an independent reference.
 //
-// Build (x86, host):
+// Build (host, scalar fallback):
 //   gcc -O2 -o test_conv2d tests/test_conv2d.c kernels/rvv/conv2d_rvv.c -lm
-// Build (riscv, ON the board, gcc 14):
+// Build (ON the board, RVV path):
 //   gcc -O2 -march=rv64gcv -o test_conv2d test_conv2d.c conv2d_rvv.c -lm
 #include <math.h>
 #include <stdio.h>
@@ -76,9 +76,9 @@ static int run_case(const Case* c, int idx) {
         if (!(d <= tol)) bad++;          // also catches NaN
         if (d > max_abs || d != d) max_abs = d;
     }
-    printf("[%s] case %2d: N=%d Cin=%d %dx%d Cout=%d k=%dx%d s=%d,%d p=%d,%d  max_abs=%.2e\n",
+    printf("[%s] case %2d: N=%d Cin=%d %dx%d Cout=%d k=%dx%d s=%d,%d p=%d,%d  W_out=%d  max_abs=%.2e\n",
            bad ? "FAIL" : "PASS", idx, c->N, c->C_in, c->H, c->W, c->C_out,
-           c->kH, c->kW, c->sh, c->sw, c->ph, c->pw, max_abs);
+           c->kH, c->kW, c->sh, c->sw, c->ph, c->pw, W_out, max_abs);
     free(in); free(wt); free(got); free(ref);
     return bad != 0;
 }
@@ -87,16 +87,23 @@ int main(void) {
     srand(0);
     const Case cases[] = {
         // N Cin  H   W  Cout kH kW sh sw ph pw
-        {1,  3,  9,  9,   8, 3, 3, 1, 1, 1, 1},  // basic 3x3, pad 1
-        {1,  3,  9,  9,   8, 3, 3, 2, 2, 1, 1},  // stride 2
-        {1,  4, 16, 16,  16, 3, 3, 1, 1, 0, 0},  // no padding
-        {1,  4, 16, 16,   3, 3, 3, 1, 1, 1, 1},  // Cout not multiple of 8
-        {1,  4, 16, 16,  10, 3, 3, 2, 2, 1, 1},  // Cout=10, stride 2
-        {1,  8, 15, 15,  17, 1, 1, 1, 1, 0, 0},  // 1x1, Cout=17
-        {1,  8, 13, 11,   5, 3, 3, 1, 1, 1, 1},  // odd, non-square
-        {1,  3, 33, 33,   8, 3, 3, 2, 2, 1, 1},  // W_out not multiple of 8
-        {2,  3,  9,  9,   8, 3, 3, 1, 1, 1, 1},  // batch > 1
-        {1, 16,  7,  7,  32, 3, 3, 1, 1, 1, 1},  // small spatial
+        {1,  3,  9,  9,   8, 3, 3, 1, 1, 1, 1},  //  0 basic 3x3, pad 1
+        {1,  3,  9,  9,   8, 3, 3, 2, 2, 1, 1},  //  1 stride 2
+        {1,  4, 16, 16,  16, 3, 3, 1, 1, 0, 0},  //  2 no padding
+        {1,  4, 16, 16,   3, 3, 3, 1, 1, 1, 1},  //  3 Cout not multiple of 8
+        {1,  4, 16, 16,  10, 3, 3, 2, 2, 1, 1},  //  4 Cout=10, stride 2
+        {1,  8, 15, 15,  17, 1, 1, 1, 1, 0, 0},  //  5 1x1, Cout=17
+        {1,  8, 13, 11,   5, 3, 3, 1, 1, 1, 1},  //  6 odd, non-square
+        {1,  3, 33, 33,   8, 3, 3, 2, 2, 1, 1},  //  7 W_out not multiple of 8
+        {2,  3,  9,  9,   8, 3, 3, 1, 1, 1, 1},  //  8 batch > 1
+        {1, 16,  7,  7,  32, 3, 3, 1, 1, 1, 1},  //  9 small spatial
+        // Long rows: several full 8-lane segments, so the in-bounds fast path runs.
+        {1,  4, 40, 40,   8, 3, 3, 1, 1, 1, 1},  // 10 stride 1, W_out=40
+        {1,  4, 40, 40,   8, 3, 3, 1, 1, 0, 0},  // 11 stride 1, no padding, W_out=38
+        {1,  4, 64, 64,   8, 3, 3, 2, 2, 1, 1},  // 12 stride 2 (vlse32), W_out=32
+        {1,  8, 32, 32,  16, 1, 1, 1, 1, 0, 0},  // 13 1x1 stride 1, every segment in bounds
+        {1,  8, 32, 32,  16, 1, 1, 2, 2, 0, 0},  // 14 1x1 stride 2, every segment in bounds
+        {1,  3, 37, 53,   5, 3, 3, 1, 1, 1, 1},  // 15 W_out=53: tail segment of 5 lanes
     };
     int n = (int)(sizeof(cases) / sizeof(cases[0]));
     int failed = 0;
