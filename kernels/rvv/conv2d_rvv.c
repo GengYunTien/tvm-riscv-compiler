@@ -24,13 +24,6 @@ void conv2d_rvv(const float* input, const float* weight, float* output,
             size_t vl = __riscv_vsetvl_e32m1(W_out - ow);
             vfloat32m1_t acc = __riscv_vfmv_v_f_f32m1(0.0f, vl);
 
-            // vector of iw base positions for this segment: (ow+i)*stride_w - pad_w
-            vuint32m1_t idx = __riscv_vid_v_u32m1(vl);
-            vint32m1_t iw0 = __riscv_vadd_vx_i32m1(
-                __riscv_vreinterpret_v_u32m1_i32m1(idx), ow, vl);
-            iw0 = __riscv_vmul_vx_i32m1(iw0, stride_w, vl);
-            iw0 = __riscv_vsub_vx_i32m1(iw0, pad_w, vl);
-
             for (int ci = 0; ci < C_in; ci++)
             for (int kh = 0; kh < kH; kh++) {
                 int ih = oh * stride_h - pad_h + kh;
