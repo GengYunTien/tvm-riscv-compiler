@@ -104,6 +104,8 @@ int main(void) {
         {1,  8, 32, 32,  16, 1, 1, 1, 1, 0, 0},  // 13 1x1 stride 1, every segment in bounds
         {1,  8, 32, 32,  16, 1, 1, 2, 2, 0, 0},  // 14 1x1 stride 2, every segment in bounds
         {1,  3, 37, 53,   5, 3, 3, 1, 1, 1, 1},  // 15 W_out=53: tail segment of 5 lanes
+        {1,  4, 24, 24,   4, 3, 3, 1, 1, 1, 1},  // 16 Cout=4: exactly one block, no tail
+        {1,  4, 24, 24,   9, 3, 3, 1, 1, 1, 1},  // 17 Cout=9: two blocks + 1 tail channel
     };
     int n = (int)(sizeof(cases) / sizeof(cases[0]));
     int failed = 0;
