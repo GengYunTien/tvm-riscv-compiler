@@ -150,8 +150,9 @@ objdump -d test_conv2d | grep -c vsetvli     # > 0: the vector path was compiled
 | scalar C kernel | 76496 ms | 200.0 G | 0.81 | 2.41 G |
 | RVV v1 (`ow` vectorized, masked gather, m1) | 28362 ms | 25.1 G | 0.27 | 0.42 G |
 | RVV v2 (contiguous/strided loads in bounds, gather at the edges) | 23201 ms | 27.6 G | 0.37 | 0.43 G |
+| RVV v3 (8 output channels per input load, m1) | 5203 ms | 9.4 G | 0.55 | 0.091 G |
 
-All four match the PyTorch reference (max abs diff 8.2e-4, max rel diff 7.5e-5).
+All five match the PyTorch reference (max abs diff 8.2e-4, max rel diff 7.5e-5).
 Time is the whole model; operators other than conv2d are compiled by LLVM
 without `+v`.
 
@@ -168,8 +169,17 @@ from the instruction count.
 **v1 to v2.** v2 is 1.22x faster than v1 (1.82x faster than LLVM) although it
 executes 10% more instructions: IPC rises from 0.27 to 0.37 once the gather is
 off the in-bounds path. L1 load misses are unchanged, which suggests they are
-set by which data is read rather than by the load instruction used. IPC is still
-low; the next versions target it and the L1 misses.
+set by which data is read rather than by the load instruction used. IPC is still 
+low, and the L1 misses are the target of v3.
+
+**v2 to v3.** Register blocking: one input load feeds 8 independent
+accumulators. v3 is 4.5x faster than v2 and 8.1x faster than LLVM.
+Instructions fall 2.9x, IPC rises from 0.37 to 0.55 and L1 load misses
+fall 4.7x. An intermediate build with a block of 4 output channels measured
+7619 ms, so going from 4 to 8 still paid off. Segments that touch the padding
+account for 8% of the input load operations (measured with a counter, since
+removed); a pre-padded input would remove them at the cost of copying every
+input tensor, so it was not pursued.
 
 ### Earlier LLVM baselines (not core-pinned, with and without `+v`)
 
@@ -200,6 +210,8 @@ low; the next versions target it and the L1 misses.
 - [x] Kernel unit test
 - [x] RVV conv2d v1: vectorize along `ow`, masked gather (1.49x faster than LLVM)
 - [x] RVV conv2d v2: contiguous/strided loads for in-bounds segments (1.82x faster than LLVM)
-- [ ] RVV conv2d v3+: several output channels per input load, multiple accumulators, LMUL and L1 tiling
+- [x] RVV conv2d v3: register-block 8 output channels per input load (8.1x faster than LLVM)
+- [ ] RVV conv2d v4+: LMUL, L1 tiling along `oh`, interior/border split
+- [ ] Measure the conv2d share of the model time
 - [ ] Multi-threaded conv2d
 - [ ] Additional operators
