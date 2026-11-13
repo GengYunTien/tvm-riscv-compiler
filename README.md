@@ -37,7 +37,6 @@ tvm-riscv-compiler/
 ├── patches/            # Patches applied to the TVM submodule
 ├── cmake/              # RVV build module, TVM config, cross-compile toolchain
 ├── scripts/            # TVM build, RVV backend apply, kernel build
-├── models/yolov8n/     # Model export
 ├── inference/          # On-board model runner (run_model)
 ├── docs/               # Build and setup guides
 ├── compile.py          # Cross-compile the model for RISC-V
